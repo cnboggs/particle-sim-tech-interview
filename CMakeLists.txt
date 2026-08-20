@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(simulation
     src/main.cpp
+
+    src/Benchmark.hpp
     src/Particle.hpp
     src/ParticleSystem.hpp
     src/Vec3d.hpp
