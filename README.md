@@ -4,10 +4,6 @@
 
 This is an n-body problem involving particles applying force upon each other in 3D space.  As noted, this is a naive O(n^2) implementation where every particle must do a pairwise interaction with every other particle, every frame.  This will be quite computationally expensive for a large n, so optimizing for performance is imperative.
 
-## Multi-threading
-
-We are working with a nested loop (i, j) here where each particle loops over every other particle; the easy target for multi-threading is to split the work of the outer loop, i.e. each thread gets a range of i, and looks over all j (0..n) except itself. Force should be accumulated for each particle and applied after the threads are joined.
-
 ## General Development Notes
 
 When reviewing the initial implementation, the first thing I've done is clean up a bit.  This code would be a bit more readable with a Vec3 type of sorts, so I've made Vec3d and implemented some basic vector operations (add, subtract, multiply/divide by scalar, length, length^2) that we may need along the way.
@@ -30,3 +26,28 @@ To confirm the O(n^2) behavior we can compare the change in particles to the cha
 | 1000 -> 2000 | 2x | 3287 ms -> 12998 ms | 4x | ~3.95x |
 
 This lines up pretty nicely. Next is implementing a multi-threading approach to compare.
+
+## Multi-threading
+
+We are working with a triangular nested loop: i ranges 0..n, and j ranges i+1..n. This can be done due to Newton's third law -- the force particle i exerts on j is equal and opposite to the force j exerts on i. Each pair is computed once instead of twice, and the result is applied to both particles' velocities at the same time.  This saves from duplicating calculations unnecessarily, but also introduces some challenges when it comes to multi-threading effectively.
+
+There are two challenges to solve here:
+ - **Write conflict** - Currently each Update() applies force from i to j and j to i in the same loop, and each particle's new velocity for a given update is not determined until it has accumulated force from every other particle. If we naively split the loop up into threads without addressing this we'd cause a data race on the shared particle state.
+
+ - **Load balancing** - The way the loops are set up to symmetrize the calculations causes a load balancing issue.  With a loop of i..n, and j=i+i..n, as i increases the inner loop j has less work to do (i.e., a triangular shape).  If we split the work over sections of i we'd be giving the earlier threads **much** more work to do than the later threads.
+
+### Write conflict
+
+There are a few solutions that I see here to resolve the write conflict.
+
+ - **Drop the symmetry optimization** - Convert back to a full i..n, j..n where j != i loop, where we can easily give each thread its own i range, and the write conflict disappears. We're doubling the computation for easy synchronization.
+
+ - **Thread-local accumulation** - Each thread gets it's own buffer for accumulating force on all particles, so that write conflicts do not occur.  Once the work has been done, we can sum these forces and reduce them into a single value that we then apply to each particle.
+
+ - **Use std::atomic** - Each particle's velocity could be wrapped in an atomic. I don't see this being very effective as threads will very likely run into having to wait on each other; this is probably not worth implementing.
+
+### Load balancing
+
+ - **Striped i range instead of contiguous i range** - To get a coarsely balanced amount of work between threads for the triangular loop, we could stripe the assignment of i values to each thread rather than giving each of them a contiguous i range.  That is, if we have 4 threads and 16 particles thread 1 gets i=0,4,8,12, thread 2 gets i=1,5,9,13, and so on. This would spread the biggest available i to each thread. Note that this is still biased towards earlier threads, but this imbalance shrinks as n grows.
+
+ - **Calculate contiguous ranges** - Determine a method of computing range boundaries so that each thread is doing an equal amount of work.  This trades more computation for more accurate load balancing.

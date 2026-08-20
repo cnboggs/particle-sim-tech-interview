@@ -9,7 +9,6 @@ namespace
 }
 
 int main() {
-
 	Benchmark<std::chrono::microseconds> bench{ "100 Particles, 100 Updates", cNUM_RUNS };
 	bench.Run([]() {
 		ParticleSystem system(100U);
@@ -27,7 +26,7 @@ int main() {
 		});
 
 	Benchmark<std::chrono::milliseconds> bench3{ "2000 Particles, 100 Updates", cNUM_RUNS };
-	bench2.Run([]() {
+	bench3.Run([]() {
 		ParticleSystem system(2000U);
 		for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
 			system.Update();
