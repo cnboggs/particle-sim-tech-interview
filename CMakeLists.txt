@@ -8,4 +8,5 @@ add_executable(simulation
     src/main.cpp
     src/Particle.hpp
     src/ParticleSystem.hpp
+    src/Vec3d.hpp
 )

@@ -10,6 +10,8 @@ int main() {
 	ParticleSystem system(cNUM_PARTICLES);
 	for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
 		system.Update();
+
+		std::cout << i << std::endl;
 	}
 
 	return 0;
