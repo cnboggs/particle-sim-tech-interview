@@ -4,11 +4,13 @@
 #include "ParticleSystem.hpp"
 
 int main() {
-	const int NUM_PARTICLES = 100;
-	const int NUM_UPDATES = 100;
-	ParticleSystem system(NUM_PARTICLES);
-	for (int i = 0; i < NUM_UPDATES; i++) {
-		system.update();
+	const auto cNUM_PARTICLES{ 100U };
+	const auto cNUM_UPDATES{ 100U };
+
+	ParticleSystem system(cNUM_PARTICLES);
+	for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
+		system.Update();
 	}
+
 	return 0;
 }

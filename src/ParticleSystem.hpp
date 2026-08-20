@@ -7,36 +7,42 @@
 
 class ParticleSystem {
 public:
-	std::vector<Particle> particles;
-	ParticleSystem(int num_particles) {
-		for (int i = 0; i < num_particles; i++) {
-			Particle p = { rand() % 1000, rand() % 1000, rand() % 1000,
-			1.0,
-			0.0, 0.0, 0.0 };
-			particles.push_back(p);
+	explicit ParticleSystem(const uint32_t aNumParticles) {
+		for (auto i{ 0U }; i < aNumParticles; i++) {
+			mParticles.emplace_back(rand() % 1000, rand() % 1000, rand() % 1000, 1.0, 0.0, 0.0, 0.0);
 		}
 	}
-	void update() {
-		for (int i = 0; i < particles.size(); i++) {
-			for (int j = i + 1; j < particles.size(); j++) {
-				double dx = particles[j].x - particles[i].x;
-				double dy = particles[j].y - particles[i].y;
-				double dz = particles[j].z - particles[i].z;
-				double dist = std::sqrt(dx * dx + dy * dy + dz * dz);
-				double force = particles[i].mass * particles[j].mass /
-					(dist * dist * dist);
-				particles[i].vx += force * dx;
-				particles[i].vy += force * dy;
-				particles[i].vz += force * dz;
-				particles[j].vx -= force * dx;
-				particles[j].vy -= force * dy;
-				particles[j].vz -= force * dz;
+
+	void Update() {
+		for (auto i{ 0U }; i < mParticles.size(); i++) {
+			for (auto j{ i + 1 }; j < mParticles.size(); j++) {
+				const auto dx{ mParticles[j].x - mParticles[i].x };
+				const auto dy{ mParticles[j].y - mParticles[i].y };
+				const auto dz{ mParticles[j].z - mParticles[i].z };
+				const auto dist{ std::sqrt(dx * dx + dy * dy + dz * dz) };
+				const auto force{ mParticles[i].mass * mParticles[j].mass /
+					(dist * dist * dist) };
+
+				// Apply acceleration to velocity
+				// Note: force *is* acceleration here using F=ma since the
+				// mass of all particles is currently hardcoded to 1.
+				mParticles[i].vx += force * dx;
+				mParticles[i].vy += force * dy;
+				mParticles[i].vz += force * dz;
+				mParticles[j].vx -= force * dx;
+				mParticles[j].vy -= force * dy;
+				mParticles[j].vz -= force * dz;
 			}
 		}
-		for (auto& p : particles) {
+
+		// Apply velocity to position
+		for (auto& p : mParticles) {
 			p.x += p.vx;
 			p.y += p.vy;
 			p.z += p.vz;
 		}
 	}
+
+private:
+	std::vector<Particle> mParticles;
 };
