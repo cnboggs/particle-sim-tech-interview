@@ -77,3 +77,8 @@ Multi-threading cuts down the runtime significantly.  One thing I immediately no
 | 24 Threads | 10 | 29482 | **2948** | 2881 | 2987 |
 
 This is something that would typically be resolved with a thread pool or the new C++20 barrier setup, however I will not be exploring this.  I'll leave the reduction portion single-threaded for now.
+
+## Determinism
+
+It's worth noting that all of the benchmarks I've run so far have been in Debug configuration, so we may be losing out on some compiler optimizations; also, the randomization of the particle positions using rand() % 1000 in unseeded fashion doesn't lend itself to accurate benchmark comparison as different computations are being done for each ParticleSystem.  I've implemented a seed setup with a Mersenne twister to get deterministic results, and going forward I'll benchmark in Release.
+

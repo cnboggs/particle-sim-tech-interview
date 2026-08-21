@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cmath>
+#include <random>
 #include <thread>
 #include <vector>
 
@@ -8,13 +8,18 @@
 
 class ParticleSystem {
 public:
-	explicit ParticleSystem(const uint32_t aNumParticles) {
+	explicit ParticleSystem(const uint32_t aNumParticles, const uint32_t aSeed = 1234U) {
+		std::mt19937 rng{ aSeed };
+		std::uniform_real_distribution<double> dist{ 0.0, 1000.0 };
+
 		for (auto i{ 0U }; i < aNumParticles; i++) {
 			mParticles.emplace_back(1.0,
-				Vec3d{ static_cast<double>(rand() % 1000), static_cast<double>(rand() % 1000), static_cast<double>(rand() % 1000) },
+				Vec3d{ dist(rng), dist(rng), dist(rng) },
 				Vec3d{ 0.0, 0.0, 0.0 });
 		}
 	}
+
+	const auto& GetParticles() const { return mParticles; }
 
 	void Update() {
 		for (auto i{ 0U }; i < mParticles.size(); i++) {

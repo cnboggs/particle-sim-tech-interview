@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath>
+
 struct Vec3d {
 	Vec3d() = default;
 	explicit Vec3d(const double aX, const double aY, const double aZ)
@@ -16,7 +18,7 @@ struct Vec3d {
 		return *this;
 	}
 
-	Vec3d operator+(const Vec3d& aOther) {
+	Vec3d operator+(const Vec3d& aOther) const {
 		Vec3d res = *this;
 		res += aOther;
 		return res;
@@ -29,7 +31,7 @@ struct Vec3d {
 		return *this;
 	}
 
-	Vec3d operator-(const Vec3d& aOther) {
+	Vec3d operator-(const Vec3d& aOther) const {
 		Vec3d res = *this;
 		res -= aOther;
 		return res;
