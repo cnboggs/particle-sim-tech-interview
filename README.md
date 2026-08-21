@@ -94,7 +94,7 @@ I will not go into full detail on how the algorithm works as it's out of scope a
 - https://arborjs.org/docs/barnes-hut
 - https://lewiscoleblog.com/barnes-hut
 
-The θ value used in the Barnes-Hut algorithm can be used to control how accurate we want the calculations; a lower value will invoke more calculations and will be more accurate, and a higher value will do the inverse.  The trade-off to make here is accuracy versus speed.  I've compared a few different theta values to the original brute-force approach, both single-threaded (Benchmarking in Release now):
+The theta value used in the Barnes-Hut algorithm can be used to control how accurate we want the calculations; a lower value will invoke more calculations and will be more accurate, and a higher value will do the inverse.  The trade-off to make here is accuracy versus speed.  I've compared a few different theta values to the original brute-force approach, both single-threaded (Benchmarking in Release now):
 
 | Benchmark (n=100, 100 Updates) | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
 |-|-|-|-|-|-|
@@ -126,4 +126,84 @@ Looking the performance gains:
 | Barnes-Hut theta=1.0 | 7069 | 3.70x | +269.5% |
 | Barnes-Hut theta=1.5 | 3548 | 7.36x | +636.2% |
 
-The Barnes-Hut approach seems to hurt at low n values, and really starts to shine as n gets larger.
+The Barnes-Hut approach seems to hurt at low n values, and really starts to shine as n gets larger.  The theta value is a very powerful variable for this algorithm.  If the sim doesn't need to be very accurate, a lot of performance can be eeked out by pushing the theta value higher.
+
+### Adding multi-threading
+
+The insertion algorithm would be a challenge to multi-thread, as the insertion will mutate shared node state frequently.  This could be parallelized but would take some considerable work.  The easier target here is the force computations.  The tree is only needed in read-only after it's been created, so we can simply split the particles we check over a number of threads.  Once we do that, we can gather some final benchmarks and make closing remarks.
+
+## Final Benchmarks
+
+Here are some final benchmarks I've run comparing both methods in single-threaded and multi-threaded configurations, with n=100, 1000, and 10000, thread count=4, 8, 16, and 100 updates; an arbitrary theta value of 1.0 was chosen for the Barnes-Hut approach:
+
+### Benchmark results
+
+| Benchmark (n=100 Particles) | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
+|-|-|-|-|-|-|
+| Naive | 10 | 20 | 2 | 2 | 2 |
+| Barnes-Hut, theta=1 | 10 | 51 | 5 | 5 | 6 |
+| Naive Threaded, 4 Threads | 10 | 4735 | 473 | 361 | 620 |
+| Barnes-Hut Threaded, 4 Threads, theta=1 | 10 | 2653 | 265 | 236 | 343 |
+| Naive Threaded, 8 Threads | 10 | 9999 | 999 | 969 | 1059 |
+| Barnes-Hut Threaded, 8 Threads, theta=1 | 10 | 4986 | 498 | 493 | 508 |
+| Naive Threaded, 16 Threads | 10 | 19711 | 1971 | 1947 | 2003 |
+| Barnes-Hut Threaded, 16 Threads, theta=1 | 10 | 9837 | 983 | 967 | 1003 |
+
+| Benchmark (n=1000 Particles) | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
+|-|-|-|-|-|-|
+| Naive | 10 | 2812 | 281 | 260 | 399 |
+| Barnes-Hut, theta=1 | 10 | 2024 | 202 | 189 | 242 |
+| Naive Threaded, 4 Threads | 10 | 4686 | 468 | 409 | 489 |
+| Barnes-Hut Threaded, 4 Threads, theta=1 | 10 | 2736 | 273 | 255 | 305 |
+| Naive Threaded, 8 Threads | 10 | 9570 | 957 | 742 | 1061 |
+| Barnes-Hut Threaded, 8 Threads, theta=1 | 10 | 5073 | 507 | 489 | 546 |
+| Naive Threaded, 16 Threads | 10 | 19575 | 1957 | 1818 | 2029 |
+| Barnes-Hut Threaded, 16 Threads, theta=1 | 10 | 9956 | 995 | 972 | 1034 |
+
+| Benchmark (n=10000 Particles) | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
+|-|-|-|-|-|-|
+| Naive | 10 | 283232 | 28323 | 26316 | 34651 |
+| Barnes-Hut, theta=1 | 10 | 72711 | 7271 | 7208 | 7445 |
+| Naive Threaded, 4 Threads | 10 | 104259 | 10425 | 10114 | 10614 |
+| Barnes-Hut Threaded, 4 Threads, theta=1 | 10 | 30066 | 3006 | 2980 | 3059 |
+| Naive Threaded, 8 Threads | 10 | 59676 | 5967 | 5937 | 5997 |
+| Barnes-Hut Threaded, 8 Threads, theta=1 | 10 | 21125 | 2112 | 2076 | 2210 |
+| Naive Threaded, 16 Threads | 10 | 39052 | 3905 | 3894 | 3923 |
+| Barnes-Hut Threaded, 16 Threads, theta=1 | 10 | 23032 | 2303 | 2286 | 2345 |
+
+
+### Speed Comparison
+
+| Benchmark | Average (ms) | Speedup vs Naive (single-threaded) |
+|-|-|-|
+| **n=100 Particles** | | |
+| Naive | 2 | 1.00x |
+| Barnes-Hut, theta=1 | 5 | 0.40x |
+| Barnes-Hut Threaded, 4 Threads, theta=1 | 265 | 0.008x |
+| Naive Threaded, 4 Threads | 473 | 0.004x |
+| Barnes-Hut Threaded, 8 Threads, theta=1 | 498 | 0.004x |
+| Barnes-Hut Threaded, 16 Threads, theta=1 | 983 | 0.002x |
+| Naive Threaded, 8 Threads | 999 | 0.002x |
+| Naive Threaded, 16 Threads | 1971 | 0.001x |
+| **n=1000 Particles** | | |
+| Barnes-Hut, theta=1 | 202 | 1.39x |
+| Barnes-Hut Threaded, 4 Threads, theta=1 | 273 | 1.03x |
+| Naive | 281 | 1.00x |
+| Naive Threaded, 4 Threads | 468 | 0.60x |
+| Barnes-Hut Threaded, 8 Threads, theta=1 | 507 | 0.55x |
+| Naive Threaded, 8 Threads | 957 | 0.29x |
+| Barnes-Hut Threaded, 16 Threads, theta=1 | 995 | 0.28x |
+| Naive Threaded, 16 Threads | 1957 | 0.14x |
+| **n=10000 Particles** | | |
+| Barnes-Hut Threaded, 8 Threads, theta=1 | 2112 | 13.41x |
+| Barnes-Hut Threaded, 16 Threads, theta=1 | 2303 | 12.30x |
+| Barnes-Hut Threaded, 4 Threads, theta=1 | 3006 | 9.42x |
+| Naive Threaded, 16 Threads | 3905 | 7.25x |
+| Naive Threaded, 8 Threads | 5967 | 4.75x |
+| Barnes-Hut, theta=1 | 7271 | 3.90x |
+| Naive Threaded, 4 Threads | 10425 | 2.72x |
+| Naive | 28323 | 1.00x |
+
+## Closing remarks
+
+The full sweep of benchmarks shows optimization choice is entirely workload-dependent: at n=100–1000, thread overhead is roughly constant regardless of particle count, so almost every threaded variant loses badly to single-threaded code. Once n=10000 is hit, both the threading optimization and the use of Barnes-hut show their value.  I'm sure this would be even more apparent at a larger n. In regard to thread count, I did notice that in general, the performance gains seemed to diminish around the 8-16 thread mark (I have a Ryzen 5900X 12 core processor, with 24 threads). Optimizing this relies on knowing your hardware. Lastly, regarding the theta value chosen for Barnes-hut -- to actually see what difference the theta is making in terms of accuracy to and to tweak it appropriately, some sort of visualization would be useful.  I've never visualized this algorithm before so I'm unsure just how inaccurate a theta value of 1.0 or 1.5 is compared to 0.0 (full accuracy).

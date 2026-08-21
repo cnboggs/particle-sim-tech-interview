@@ -1,3 +1,4 @@
+#include <array>
 #include <cassert>
 #include <iostream>
 #include <thread>
@@ -10,6 +11,9 @@ namespace
 {
 	constexpr auto cNUM_UPDATES{ 100U };
 	constexpr auto cNUM_RUNS{ 10U };
+	constexpr auto cTHETA{ 1.0 };
+	constexpr std::array cPARTICLE_COUNTS{ 100U, 1000U, 10000U };
+	constexpr std::array cTHREAD_COUNTS{ 4U, 8U, 16U };
 
 	bool ParticlesApproxEqual(const std::vector<Particle>& aLhs, const std::vector<Particle>& aRhs, const double aEpsilon = 1e-6) {
 		if (aLhs.size() != aRhs.size()) return false;
@@ -36,100 +40,33 @@ namespace
 int main() {
 	//assert(DeterminismCheck());
 
-	//Benchmark<std::chrono::microseconds> bench{ "100 Particles, 100 Updates", cNUM_RUNS };
-	//bench.Run([]() {
-	//	ParticleSystem system(100U);
-	//	for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-	//		system.Update();
-	//	}
-	//	});
+	for (const auto n : cPARTICLE_COUNTS) {
+		Benchmark<std::chrono::milliseconds> naiveBench{ std::format("Naive, {} Particles", n), cNUM_RUNS };
+		naiveBench.Run([n]() {
+			ParticleSystem system(n);
+			for (auto i{ 0U }; i < cNUM_UPDATES; i++) system.Update();
+			});
 
-	//Benchmark<std::chrono::milliseconds> bench2{ "1000 Particles, 100 Updates", cNUM_RUNS };
-	//bench2.Run([]() {
-	//	ParticleSystem system(1000U);
-	//	for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-	//		system.Update();
-	//	}
-	//	});
+		Benchmark<std::chrono::milliseconds> bhBench{ std::format("Barnes-Hut, {} Particles, theta={}", n, cTHETA), cNUM_RUNS };
+		bhBench.Run([n]() {
+			ParticleSystem system(n);
+			for (auto i{ 0U }; i < cNUM_UPDATES; i++) system.UpdateBarnesHut(cTHETA);
+			});
 
-	//Benchmark<std::chrono::milliseconds> bench3{ "2000 Particles, 100 Updates", cNUM_RUNS };
-	//bench3.Run([]() {
-	//	ParticleSystem system(2000U);
-	//	for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-	//		system.Update();
-	//	}
-	//	});
+		for (const auto threads : cTHREAD_COUNTS) {
+			Benchmark<std::chrono::milliseconds> naiveThreadedBench{ std::format("Naive Threaded, {} Particles, {} Threads", n, threads), cNUM_RUNS };
+			naiveThreadedBench.Run([n, threads]() {
+				ParticleSystem system(n);
+				for (auto i{ 0U }; i < cNUM_UPDATES; i++) system.UpdateThreaded(threads);
+				});
 
-	// Automatically gather number of available threads
-	//auto numThreads{ std::thread::hardware_concurrency() };
-	//if (numThreads == 0)
-	//{
-	//	numThreads = 2;
-	//}
-
-	//Benchmark<std::chrono::milliseconds> bench{ "Multi-threaded, 1000 Particles, 100 Updates, 4 Threads", cNUM_RUNS };
-	//bench.Run([numThreads=4U]() {
-	//	ParticleSystem system(1000U);
-	//	for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-	//		system.UpdateThreaded(numThreads);
-	//	}
-	//	});
-
-	//Benchmark<std::chrono::milliseconds> bench2{ "Multi-threaded, 1000 Particles, 100 Updates, 8 Threads", cNUM_RUNS };
-	//bench2.Run([numThreads = 8U]() {
-	//	ParticleSystem system(1000U);
-	//	for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-	//		system.UpdateThreaded(numThreads);
-	//	}
-	//	});
-
-	//Benchmark<std::chrono::milliseconds> bench3{ "Multi-threaded, 1000 Particles, 100 Updates, 16 Threads", cNUM_RUNS };
-	//bench3.Run([numThreads = 16U]() {
-	//	ParticleSystem system(1000U);
-	//	for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-	//		system.UpdateThreaded(numThreads);
-	//	}
-	//	});
-
-	//Benchmark<std::chrono::milliseconds> bench4{ "Multi-threaded, 1000 Particles, 100 Updates, 24 Threads", cNUM_RUNS };
-	//bench4.Run([numThreads = 24U]() {
-	//	ParticleSystem system(1000U);
-	//	for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-	//		system.UpdateThreaded(numThreads);
-	//	}
-	//	});
-
-	Benchmark<std::chrono::milliseconds> bench{ "Single-threaded, 10000 Particles, 100 Updates", cNUM_RUNS };
-	bench.Run([]() {
-		ParticleSystem system(100U);
-		for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-			system.Update();
+			Benchmark<std::chrono::milliseconds> bhThreadedBench{ std::format("Barnes-Hut Threaded, {} Particles, {} Threads, theta={}", n, threads, cTHETA), cNUM_RUNS };
+			bhThreadedBench.Run([n, threads]() {
+				ParticleSystem system(n);
+				for (auto i{ 0U }; i < cNUM_UPDATES; i++) system.UpdateBarnesHutThreaded(threads, cTHETA);
+				});
 		}
-		});
-
-	Benchmark<std::chrono::milliseconds> bench2{ "Barnes-Hut theta=0.5, 10000 Particles, 100 Updates", cNUM_RUNS };
-	bench2.Run([]() {
-		ParticleSystem system(100U);
-		for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-			system.UpdateBarnesHut();
-		}
-		});
-
-	Benchmark<std::chrono::milliseconds> bench3{ "Barnes-Hut theta=1.0, 10000 Particles, 100 Updates", cNUM_RUNS };
-	bench3.Run([]() {
-		ParticleSystem system(100U);
-		for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-			system.UpdateBarnesHut(1.0);
-		}
-		});
-
-	Benchmark<std::chrono::milliseconds> bench4{ "Barnes-Hut theta=1.5, 10000 Particles, 100 Updates", cNUM_RUNS };
-	bench4.Run([]() {
-		ParticleSystem system(100U);
-		for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
-			system.UpdateBarnesHut(1.5);
-		}
-		});
+	}
 
 	return 0;
 }
