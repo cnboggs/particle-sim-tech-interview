@@ -47,7 +47,7 @@ private:
 
 		const auto averageDuration{ std::chrono::duration_cast<TimeUnit>(totalDuration / mRuns.size()) };
         const auto [minIt, maxIt]{ std::minmax_element(mRuns.begin(), mRuns.end()) };
-		std::cout << std::format("\nTotal: {}\nAverage: {}\nMin: {}\nMax: {}", totalDuration, averageDuration, *minIt, *maxIt) << std::endl;
+		std::cout << std::format("\nTotal: {}\nAverage: {}\nMin: {}\nMax: {}\n", totalDuration, averageDuration, *minIt, *maxIt) << std::endl;
 	}
 
 	std::string           mName;

@@ -14,16 +14,16 @@ Testing the approach currently in place, I got the following benchmark results:
 
 | Benchmark | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
 |-|-|-|-|-|-|
-| 100 Particles, 100 Updates  | 10 | 328.865 | 32.886 | 32.070 | 37.817 |
-| 1000 Particles, 100 Updates | 10 | 32878   | 3287   | 3235   | 3321   |
-| 2000 Particles, 100 Updates | 10 | 129982  | 12998  | 12988  | 13015  |
+| 100 Particles, 100 Updates  | 10 | 328.865 | **32.886** | 32.070 | 37.817 |
+| 1000 Particles, 100 Updates | 10 | 32878   | **3287**   | 3235   | 3321   |
+| 2000 Particles, 100 Updates | 10 | 129982  | **12998**  | 12988  | 13015  |
 
 To confirm the O(n^2) behavior we can compare the change in particles to the change in average execution time. A 10x change in the number of particles should result in a 100x change in execution time:
 
 | Transition | Particle Scale | Avg Time Before -> After | Expected Time Scale | Actual Time Scale |
 |-|-|-|-|-|
-| 100 -> 1000 | 10x | 32.886 ms -> 3287 ms | 100x | ~99.96x |
-| 1000 -> 2000 | 2x | 3287 ms -> 12998 ms | 4x | ~3.95x |
+| 100 -> 1000 | 10x | 32.886 ms -> 3287 ms | 100x | **~99.96x** |
+| 1000 -> 2000 | 2x | 3287 ms -> 12998 ms | 4x | **~3.95x** |
 
 This lines up pretty nicely. Next is implementing a multi-threading approach to compare.
 
@@ -38,16 +38,42 @@ There are two challenges to solve here:
 
 ### Write conflict
 
-There are a few solutions that I see here to resolve the write conflict.
+There are a few solutions that I see here to resolve the write conflict:
 
  - **Drop the symmetry optimization** - Convert back to a full i..n, j..n where j != i loop, where we can easily give each thread its own i range, and the write conflict disappears. We're doubling the computation for easy synchronization.
 
- - **Thread-local accumulation** - Each thread gets it's own buffer for accumulating force on all particles, so that write conflicts do not occur.  Once the work has been done, we can sum these forces and reduce them into a single value that we then apply to each particle.
+ - **Thread-local accumulation** - Each thread gets its own buffer for accumulating force on all particles, so that write conflicts do not occur.  Once the work has been done, we can sum these forces and reduce them into a single value that we then apply to each particle.  The cost here is memory usage.
 
  - **Use std::atomic** - Each particle's velocity could be wrapped in an atomic. I don't see this being very effective as threads will very likely run into having to wait on each other; this is probably not worth implementing.
 
 ### Load balancing
 
- - **Striped i range instead of contiguous i range** - To get a coarsely balanced amount of work between threads for the triangular loop, we could stripe the assignment of i values to each thread rather than giving each of them a contiguous i range.  That is, if we have 4 threads and 16 particles thread 1 gets i=0,4,8,12, thread 2 gets i=1,5,9,13, and so on. This would spread the biggest available i to each thread. Note that this is still biased towards earlier threads, but this imbalance shrinks as n grows.
+For balancing the load across threads, I can think of two options:
+
+ - **Striped i range instead of contiguous i range** - Easy to get a coarsely balanced amount of work between threads for the triangular loop; we could stripe the assignment of i values for each thread rather than giving each of them a contiguous i range.  That is, if we have 4 threads  the first thread gets i=0,4,8,12,... the second gets i=1,5,9,13,... and so on. This would spread the biggest available i to each thread. Note that this is still biased towards earlier threads, but this imbalance shrinks as n grows.
 
  - **Calculate contiguous ranges** - Determine a method of computing range boundaries so that each thread is doing an equal amount of work.  This trades more computation for more accurate load balancing.
+
+## Implementing the multi-threading
+
+I decided to go with thread-local accumulation to resolve the write conflict, and striping the i range for the load balancing. I ran the multi-threaded solution over 1000 particles with different thread counts to get an idea of what I was working with:
+
+| Benchmark (n=1000, 100 Updates) | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
+|-|-|-|-|-|-|
+| 1 Thread  (Initial benchmark)| 10 | 32878 | **3287** | 3235 | 3321 |
+| 4 Threads | 10 | 9980 | **998** | 977 | 1061 |
+| 8 Threads | 10 | 10044 | **1004** | 956 | 1093 |
+| 16 Threads | 10 | 10298 | **1029** | 995 | 1056 |
+| 24 Threads | 10 | 14891 | **1489** | 1407 | 1539 |
+
+Multi-threading cuts down the runtime significantly.  One thing I immediately noticed was that as the thread count increased the performance plateaud and past a point performed worse.  This could be due to the overhead of managing the threads themselves, or requesting all of the threads fighting the OS. I was able to confirm thread overhead performance impact when I added multi-threading to the reduction portion of my update that was previously single-threaded (summing values from all buffers); things ran significantly slower on average:
+
+| Benchmark (n=1000, 100 Updates) | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
+|-|-|-|-|-|-|
+| 1 Thread (Initial benchmark) | 10 | 32878 | **3287** | 3235 | 3321 |
+| 4 Threads | 10 | 15219 | **1521** | 1231 | 1645 |
+| 8 Threads | 10 | 12768 | **1276** | 1264 | 1302 |
+| 16 Threads | 10 | 19834 | **1983** | 1797 | 2116 |
+| 24 Threads | 10 | 29482 | **2948** | 2881 | 2987 |
+
+This is something that would typically be resolved with a thread pool or the new C++20 barrier setup, however I will not be exploring this.  I'll leave the reduction portion single-threaded for now.
