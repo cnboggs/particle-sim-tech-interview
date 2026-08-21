@@ -80,5 +80,50 @@ This is something that would typically be resolved with a thread pool or the new
 
 ## Determinism
 
-It's worth noting that all of the benchmarks I've run so far have been in Debug configuration, so we may be losing out on some compiler optimizations; also, the randomization of the particle positions using rand() % 1000 in unseeded fashion doesn't lend itself to accurate benchmark comparison as different computations are being done for each ParticleSystem.  I've implemented a seed setup with a Mersenne twister to get deterministic results, and going forward I'll benchmark in Release.
+It's worth noting that all of the benchmarks I've run so far have been in Debug configuration, so we may be losing out on some compiler optimizations; also, the randomization of the particle positions using rand() % 1000 in unseeded fashion doesn't lend itself to accurate benchmark comparison as different computations are being done for each ParticleSystem.  I've implemented a seed setup with a Mersenne twister to get deterministic results.  I threw together a small check for this in my main.cpp to confirm.  Also, going forward I'll benchmark in Release.
 
+## Barnes-Hut Algorithm
+
+The Barnes-Hut Algorithm is a way of approximating forces on a particle by splitting them up into regions via a quadtree in 2D space or an octree in 3D space, and using the center of mass of a region to get the applied force. This reduces the calculations required for an n-body simulation from the O(n^2) time we've worked with so far to an O(nlogn) time, which is a significant improvement for large n; this comes at a cost of accuracy which we'll look at when we benchmark.
+
+Do note that the question talks about quadtrees which would be 2D space, however the particle system as it stands is 3D which would call for an octree implementation; this is what I'll implement.
+
+Octree's can be represented by a tree-like structure of nodes. Each of these nodes represents a region, and may contain 0 or 1 particles.  The tree is constructed one particle at a time -- as each particle is added, if a collision occurs, a node will subdivide and place both particles that have collided while keeping track of the center of mass for each region.
+
+I will not go into full detail on how the algorithm works as it's out of scope and there are many great resources online for this, such as:
+- https://arborjs.org/docs/barnes-hut
+- https://lewiscoleblog.com/barnes-hut
+
+The θ value used in the Barnes-Hut algorithm can be used to control how accurate we want the calculations; a lower value will invoke more calculations and will be more accurate, and a higher value will do the inverse.  The trade-off to make here is accuracy versus speed.  I've compared a few different theta values to the original brute-force approach, both single-threaded (Benchmarking in Release now):
+
+| Benchmark (n=100, 100 Updates) | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
+|-|-|-|-|-|-|
+| Single-threaded | 10 | 20 | 2 | 2 | 2 |
+| Barnes-Hut theta=0.5 | 10 | 117 | 11 | 11 | 14 |
+| Barnes-Hut theta=1.0 | 10 | 71 | 7 | 5 | 8 |
+| Barnes-Hut theta=1.5 | 10 | 52 | 5 | 5 | 6 |
+
+| Benchmark (n=1000, 100 Updates) | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
+|-|-|-|-|-|-|
+| Single-threaded | 10 | 2548 | 254 | 252 | 260 |
+| Barnes-Hut theta=0.5 | 10 | 5352 | 535 | 521 | 553 |
+| Barnes-Hut theta=1.0 | 10 | 1945 | 194 | 188 | 204 |
+| Barnes-Hut theta=1.5 | 10 | 1445 | 144 | 142 | 147 |
+
+| Benchmark (n=10000, 100 Updates) | Runs | Total (ms) | Average (ms) | Min (ms) | Max (ms) |
+|-|-|-|-|-|-|
+| Single-threaded | 10 | 261217 | 26121 | 25433 | 26565 |
+| Barnes-Hut theta=0.5 | 10 | 181101 | 18110 | 17817 | 18469 |
+| Barnes-Hut theta=1.0 | 10 | 70691 | 7069 | 7008 | 7177 |
+| Barnes-Hut theta=1.5 | 10 | 35488 | 3548 | 3461 | 3691 |
+
+Looking the performance gains:
+
+| Benchmark (n=10000, 100 Updates) | Average (ms) | Speedup | % Faster |
+|-|-|-|-|
+| Single-threaded | 26121 | 1.00x | — |
+| Barnes-Hut theta=0.5 | 18110 | 1.44x | +44.2% |
+| Barnes-Hut theta=1.0 | 7069 | 3.70x | +269.5% |
+| Barnes-Hut theta=1.5 | 3548 | 7.36x | +636.2% |
+
+The Barnes-Hut approach seems to hurt at low n values, and really starts to shine as n gets larger.

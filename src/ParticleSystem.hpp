@@ -1,9 +1,11 @@
 #pragma once
 
+#include <algorithm>
 #include <random>
 #include <thread>
 #include <vector>
 
+#include "Octree.hpp"
 #include "Particle.hpp"
 
 class ParticleSystem {
@@ -105,6 +107,41 @@ public:
 		}
 		for (auto& thread : threads) {
 			thread.join();
+		}
+
+		// Apply velocity to position
+		for (auto& p : mParticles) {
+			p.mPosition += p.mVelocity;
+		}
+	}
+
+	// aTheta = 0.5 referenced from https://arborjs.org/docs/barnes-hut
+	void UpdateBarnesHut(const double aTheta = 0.5) {
+		// Compute a bounding region from actual particle positions each update
+		// to accurately capture the root region.
+		auto minPos{ mParticles.front().mPosition };
+		auto maxPos{ mParticles.front().mPosition };
+		for (const auto& p : mParticles) {
+			minPos.mX = std::min(minPos.mX, p.mPosition.mX);
+			minPos.mY = std::min(minPos.mY, p.mPosition.mY);
+			minPos.mZ = std::min(minPos.mZ, p.mPosition.mZ);
+			maxPos.mX = std::max(maxPos.mX, p.mPosition.mX);
+			maxPos.mY = std::max(maxPos.mY, p.mPosition.mY);
+			maxPos.mZ = std::max(maxPos.mZ, p.mPosition.mZ);
+		}
+
+		const auto center{ (minPos + maxPos) / 2.0 };
+		const auto extent{ maxPos - minPos };
+		const auto halfWidth{ std::max({ extent.mX, extent.mY, extent.mZ }) / 2.0 + 1.0 };
+
+		Octree root{ center, halfWidth };
+		for (const auto& p : mParticles) {
+			root.Insert(p);
+		}
+
+		for (auto& p : mParticles) {
+			// Same force as acceleration setup as in Update(), since mass is hardcoded to 1.0
+			p.mVelocity += root.ComputeForce(p, aTheta);
 		}
 
 		// Apply velocity to position

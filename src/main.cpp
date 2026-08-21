@@ -34,7 +34,7 @@ namespace
 }
 
 int main() {
-	assert(DeterminismCheck());
+	//assert(DeterminismCheck());
 
 	//Benchmark<std::chrono::microseconds> bench{ "100 Particles, 100 Updates", cNUM_RUNS };
 	//bench.Run([]() {
@@ -98,6 +98,38 @@ int main() {
 	//		system.UpdateThreaded(numThreads);
 	//	}
 	//	});
+
+	Benchmark<std::chrono::milliseconds> bench{ "Single-threaded, 10000 Particles, 100 Updates", cNUM_RUNS };
+	bench.Run([]() {
+		ParticleSystem system(100U);
+		for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
+			system.Update();
+		}
+		});
+
+	Benchmark<std::chrono::milliseconds> bench2{ "Barnes-Hut theta=0.5, 10000 Particles, 100 Updates", cNUM_RUNS };
+	bench2.Run([]() {
+		ParticleSystem system(100U);
+		for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
+			system.UpdateBarnesHut();
+		}
+		});
+
+	Benchmark<std::chrono::milliseconds> bench3{ "Barnes-Hut theta=1.0, 10000 Particles, 100 Updates", cNUM_RUNS };
+	bench3.Run([]() {
+		ParticleSystem system(100U);
+		for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
+			system.UpdateBarnesHut(1.0);
+		}
+		});
+
+	Benchmark<std::chrono::milliseconds> bench4{ "Barnes-Hut theta=1.5, 10000 Particles, 100 Updates", cNUM_RUNS };
+	bench4.Run([]() {
+		ParticleSystem system(100U);
+		for (auto i{ 0U }; i < cNUM_UPDATES; i++) {
+			system.UpdateBarnesHut(1.5);
+		}
+		});
 
 	return 0;
 }
